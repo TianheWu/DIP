@@ -9,3 +9,4 @@ int main() {
     image.save_color_val(BORDER_X, BORDER_Y, EXP1_OUT);
     return 0;
 }
+
