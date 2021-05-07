@@ -307,20 +307,25 @@ void Image::transform_24_Kmeans(int target_color_num) {
     }
 
     for (int z = 0; z < 7; z++) {
+        std::cout << "Epoch: " << z << std::endl;
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
                 int type_idx = find_color_type(k_means_vec, this->pixel[i][j], point);
                 point_type[i * height + j] = point_type[type_idx];
             }
         }
+        std::cout << "Finish update point type" << std::endl;
         k_means_vec.clear();
+        std::cout << "Start to calculate each same type average point" << std::endl;
         for (int i = 0; i < (int) pow(2, target_color_num); i++) {
+            std::cout << "Epoch: " << z << " | Type: " << i << std::endl;
             std::vector<int> same_type;
             for (int j = 0; j < pixel_num; j++) {
                 if (point_type[j] == i)
                     same_type.push_back(j);
             }
             int average_r = 0, average_g = 0, average_b = 0, size_same = same_type.size();
+            std::cout << "Calculate average" << std::endl;
             for (int j = 0; j < size_same; j++) {
                 average_r += point[same_type[j]].R;
                 average_g += point[same_type[j]].G;
@@ -333,30 +338,25 @@ void Image::transform_24_Kmeans(int target_color_num) {
             average_pixel.R = average_r;
             average_pixel.G = average_g;
             average_pixel.B = average_b;
+            std::cout << "Start to find match average point" << std::endl;
             int point_idx = find_match_average(same_type, average_pixel, point);
             k_means_vec.push_back(point_idx);
         }
     }
-
+    std::cout << "Start to form new palette" << std::endl;
+    this->new_form_palette = new Pixel_palette[(int) pow(2, target_color_num)];
     for (int i = 0; i < (int) pow(2, target_color_num); i++) {
-        // this->new_form_palette[i].G =
+        this->new_form_palette[i].G = point[k_means_vec[i]].G;
+        this->new_form_palette[i].B = point[k_means_vec[i]].B;
+        this->new_form_palette[i].R = point[k_means_vec[i]].R;
+        this->new_form_palette[i].reserved = 0;
     }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+    std::cout << "Start to form new pixel" << std::endl;
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            this->new_form_pixel[i][j] = (BYTE) point_type[i * height + width];
+        }
+    }
     this->bmp_info_head.biBitCount = target_color_num;
     this->bmp_file_head.bfOffBits = 54 + (int) pow(2, target_color_num) * 4;
     this->bmp_info_head.biSizeImage = width * height;
