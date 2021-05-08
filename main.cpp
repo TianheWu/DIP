@@ -1,6 +1,7 @@
 #include <iostream>
 #include "image.h"
 #include "__imageParameter.h"
+#include <vector>
 
 int main() {
     Image image;

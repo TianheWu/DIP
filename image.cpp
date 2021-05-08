@@ -248,7 +248,7 @@ void Image::transform_24_topK(int target_color_num) {
 
 
 int Image::find_color_type(std::vector<int>& k_means_vec, Pixel& in_pixel, std::vector<Pixel>& point) {
-    int sum = 999, n = k_means_vec.size(), type_idx = -1;
+    int sum = INT_MAX_NUM, n = k_means_vec.size(), same_type_point_idx = -1;
     for (int i = 0; i < n; i++) {
         int temp_R = abs(point[k_means_vec[i]].R - in_pixel.R);
         int temp_G = abs(point[k_means_vec[i]].G - in_pixel.G);
@@ -256,20 +256,20 @@ int Image::find_color_type(std::vector<int>& k_means_vec, Pixel& in_pixel, std::
         int temp_sum = temp_R + temp_G + temp_B;
         if (temp_sum < sum) {
             sum = temp_sum;
-            type_idx = k_means_vec[i];
+            same_type_point_idx = k_means_vec[i];
         }
     }
-    return type_idx;
+    return same_type_point_idx;
 }
 
 
 int Image::find_match_average(std::vector<int>& same_type, Pixel& in_pixel, std::vector<Pixel>& point) {
-    int sum = 999, point_idx = 0;
+    int sum = INT_MAX_NUM, point_idx = 0;
     for (int i = 0; i < same_type.size(); i++) {
+        int temp_R = abs(point[same_type[i]].R - in_pixel.R);
         int temp_G = abs(point[same_type[i]].G - in_pixel.G);
         int temp_B = abs(point[same_type[i]].B - in_pixel.B);
-        int temp_R = abs(point[same_type[i]].R - in_pixel.R);
-        int temp_sum = temp_B + temp_G + temp_R;
+        int temp_sum = temp_R + temp_G + temp_B;
         if (temp_sum < sum) {
             sum = temp_sum;
             point_idx = same_type[i];
@@ -289,61 +289,65 @@ void Image::transform_24_Kmeans(int target_color_num) {
         for (int j = 0; j < width; j++)
             point.push_back(this->pixel[i][j]);
     int pixel_num = point.size();
-    point_type.resize(pixel_num, 0);
+    std::cout << "Pixel num = " << pixel_num << std::endl;
+    point_type.resize(pixel_num, -1);
 
     srand((unsigned) time(NULL));
     std::unordered_map<int, int> random_num_map;
 
     // first k-means
-    int i = 0;
-    while (i < (int) pow(2, target_color_num)) {
-        int rand_num = rand() % pixel_num;
-        if (random_num_map.find(rand_num) != random_num_map.end())
+    std::cout << "find random 256 color point" << std::endl;
+    int i_count = 0;
+    while (i_count < (int) pow(2, target_color_num)) {
+        int rand_idx = rand() % pixel_num;
+        if (random_num_map.find(rand_idx) != random_num_map.end())
             continue;
-        random_num_map[rand_num]++;
-        k_means_vec.push_back(rand_num);
-        point_type[rand_num] = i;
-        i++;
+        random_num_map[rand_idx]++;
+        k_means_vec.push_back(rand_idx);
+        point_type[rand_idx] = i_count;
+        i_count++;
     }
-
-    for (int z = 0; z < 7; z++) {
-        std::cout << "Epoch: " << z << std::endl;
+    std::cout << "Finish find 256 color" << std::endl;
+    for (int epoch = 0; epoch < EPOCH_NUMS; epoch++) {
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-                int type_idx = find_color_type(k_means_vec, this->pixel[i][j], point);
-                point_type[i * height + j] = point_type[type_idx];
+                if (point_type[i * height + j] != -1)
+                    continue;
+                int same_type_point_idx = find_color_type(k_means_vec, this->pixel[i][j], point);
+                point_type[i * height + j] = point_type[same_type_point_idx];
             }
         }
         std::cout << "Finish update point type" << std::endl;
         k_means_vec.clear();
+        std::vector<int> temp_point_type(pixel_num, -1);
+        std::cout << "Clear k_means_vec, k_means_vec size = " << k_means_vec.size() << std::endl;
         std::cout << "Start to calculate each same type average point" << std::endl;
-        for (int i = 0; i < (int) pow(2, target_color_num); i++) {
-            std::cout << "Epoch: " << z << " | Type: " << i << std::endl;
+        for (int type = 0; type < (int) pow(2, target_color_num); type++) {
             std::vector<int> same_type;
             for (int j = 0; j < pixel_num; j++) {
-                if (point_type[j] == i)
+                if (point_type[j] == type)
                     same_type.push_back(j);
             }
-            int average_r = 0, average_g = 0, average_b = 0, size_same = same_type.size();
-            std::cout << "Calculate average" << std::endl;
-            for (int j = 0; j < size_same; j++) {
+            int average_r = 0, average_g = 0, average_b = 0, same_type_vec_size = same_type.size();
+            std::cout << "Epoch: " << epoch << " | Type " << type << " | Same type size " << same_type_vec_size << std::endl;
+            for (int j = 0; j < same_type_vec_size; j++) {
                 average_r += point[same_type[j]].R;
                 average_g += point[same_type[j]].G;
                 average_b += point[same_type[j]].B;
             }
-            average_r /= size_same;
-            average_b /= size_same;
-            average_g /= size_same;
+            average_r /= same_type_vec_size;
+            average_b /= same_type_vec_size;
+            average_g /= same_type_vec_size;
             Pixel average_pixel;
             average_pixel.R = average_r;
             average_pixel.G = average_g;
             average_pixel.B = average_b;
-            std::cout << "Start to find match average point" << std::endl;
             int point_idx = find_match_average(same_type, average_pixel, point);
             k_means_vec.push_back(point_idx);
+            temp_point_type[point_idx] = type;
         }
+        point_type = temp_point_type;
     }
-    std::cout << "Start to form new palette" << std::endl;
     this->new_form_palette = new Pixel_palette[(int) pow(2, target_color_num)];
     for (int i = 0; i < (int) pow(2, target_color_num); i++) {
         this->new_form_palette[i].G = point[k_means_vec[i]].G;
@@ -351,14 +355,21 @@ void Image::transform_24_Kmeans(int target_color_num) {
         this->new_form_palette[i].R = point[k_means_vec[i]].R;
         this->new_form_palette[i].reserved = 0;
     }
-    std::cout << "Start to form new pixel" << std::endl;
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            this->new_form_pixel[i][j] = (BYTE) point_type[i * height + width];
+            if (point_type[i * height + j] != -1)
+                continue;
+            int same_type_point_idx = find_color_type(k_means_vec, this->pixel[i][j], point);
+            point_type[i * height + j] = point_type[same_type_point_idx];
+        }
+    }
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            this->new_form_pixel[i][j] = (BYTE) point_type[i * height + j];
         }
     }
     this->bmp_info_head.biBitCount = target_color_num;
-    this->bmp_file_head.bfOffBits = 54 + (int) pow(2, target_color_num) * 4;
+    this->bmp_file_head.bfOffBits = 54 + ((int) pow(2, target_color_num)) * 4;
     this->bmp_info_head.biSizeImage = width * height;
     this->bmp_file_head.bfSize = this->bmp_file_head.bfOffBits + this->bmp_info_head.biSizeImage;
     fwrite(&this->bfType, 2, 1, this->file_out);

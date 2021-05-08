@@ -38,6 +38,8 @@
 #define PALETTE 4
 #define COLOR_NUM 256
 #define PALETTE_COUNT 1
+#define EPOCH_NUMS 60
+#define INT_MAX_NUM 1000000007
 
 
 #endif //DIP_EXP___IMAGEPARAMETER_H
