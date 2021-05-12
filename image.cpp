@@ -20,56 +20,53 @@ bool cmp(std::pair<int, int> x1, std::pair<int, int> x2) {
 
 
 Image::Image() {
-//    this->fig_rows = ROWS;
-//    this->fig_cols = COLUMNS;
-    this->pixel_palette = new Pixel_palette[COLOR_NUM];
+
 }
 
 
 int Image::get_widths() {
-    return this->fig_rows;
+    return this->fig_width;
 }
 
 
 int Image::get_heights() {
-    return this->fig_cols;
+    return this->fig_height;
 }
 
 
 void Image::load_fig(std::string __FILE_NAME_1, std::string __FILE_NAME_2, int _exp) {
-    std::cout << "Start to load figure" << std::endl;
     this->file_in = fopen(__FILE_NAME_1.c_str(), "rb");
     if (_exp == 1)
         this->file_out = fopen(__FILE_NAME_2.c_str(), "w");
     else if (_exp == 2 || _exp == 3 || _exp == 4 || _exp == 5 || _exp == 6)
         this->file_out = fopen(__FILE_NAME_2.c_str(), "wb");
     std::cout << "Open " << __FILE_NAME_1 << " and " << __FILE_NAME_2 << " successfully!" << std::endl;
-    if (_exp == EXP1 || _exp == EXP2 || _exp == EXP4 || _exp == EXTEND_EXP_2) {
-        fread(&this->bfType, 2, 1, this->file_in);
-        fread(&this->bmp_file_head, 12, 1, this->file_in);
-        fread(&this->bmp_info_head, 40, 1, this->file_in);
-        this->fig_rows = this->bmp_info_head.biWidth;
-        this->fig_cols = this->bmp_info_head.biHeight;
-        fread(this->pixel, RGB_BYTE_24, this->fig_rows * this->fig_cols, this->file_in);
-    }
+    fread(&this->bfType, 2, 1, this->file_in);
+    fread(&this->bmp_file_head, 12, 1, this->file_in);
+    fread(&this->bmp_info_head, 40, 1, this->file_in);
+    this->fig_width = this->bmp_info_head.biWidth;
+    this->fig_height = this->bmp_info_head.biHeight;
+    if (this->bmp_info_head.biBitCount == 8)
+        this->pixel_palette = new Pixel_palette[COLOR_NUM];
+    std::cout << "figure color is " << this->bmp_info_head.biBitCount << std::endl;
+    std::cout << "figure width: " << this->fig_width << " | figure height: " << this->fig_height << std::endl;
+    this->pixel = new Pixel[this->fig_width * this->fig_height];
+    this->origin_pixel_256 = new BYTE[this->fig_width * this->fig_height];
+    this->new_pixel_256 = new BYTE[this->fig_width * this->fig_height];
+    if (_exp == EXP1 || _exp == EXP2 || _exp == EXP4 || _exp == EXTEND_EXP_2)
+        fread(this->pixel, RGB_BYTE_24, this->fig_width * this->fig_height, this->file_in);
     else if (_exp == EXP3 || _exp == EXTEND_EXP_1) {
-        fread(&this->bfType, 2, 1, this->file_in);
-        fread(&this->bmp_file_head, 12, 1, this->file_in);
-        fread(&this->bmp_info_head, 40, 1, this->file_in);
-        this->fig_rows = this->bmp_info_head.biWidth;
-        this->fig_cols = this->bmp_info_head.biHeight;
         fread(this->pixel_palette, PALETTE * COLOR_NUM, PALETTE_COUNT, this->file_in);
-        fread(this->rgb_idx, RGB_BYTE_256, this->fig_rows * this->fig_cols, this->file_in);
+        fread(this->origin_pixel_256, RGB_BYTE_256, this->fig_width * this->fig_height, this->file_in);
     }
-    std::cout << "Read file_head and pixel successfully!" << std::endl;
+    std::cout << "read figure successfully!" << std::endl;
 }
 
 
-void Image::save_color_val(int _border_x, int _border_y, std::string _FILE_NAME) {
-    std::cout << "Start to save color" << std::endl;
-    for (int i = 0; i < _border_x; i++) {
-        for (int j = 0; j < _border_y; j++)
-            fprintf(this->file_out, "(%d, %d, %d)", this->pixel[i][j].R, this->pixel[i][j].G, this->pixel[i][j].B);
+void Image::save_color_val(int _height_edge, int _width_edge, std::string _FILE_NAME) {
+    for (int i = 0; i < _height_edge; i++) {
+        for (int j = 0; j < _width_edge; j++)
+            fprintf(this->file_out, "(%d, %d, %d)", this->pixel[i * this->fig_width + j].R, this->pixel[i * this->fig_width + j].G, this->pixel[i * this->fig_width + j].B);
         fprintf(this->file_out, "\n");
     }
     fclose(this->file_in);
@@ -78,22 +75,21 @@ void Image::save_color_val(int _border_x, int _border_y, std::string _FILE_NAME)
 }
 
 
-void Image::modify_color_val(int _border_x, int _border_y, std::string _FILE_NAME, int _R, int _G, int _B) {
-    std::cout << "Start to modify color" << std::endl;
-    for (int i = 0; i < _border_x; i++) {
-        for (int j = 0; j < _border_y; j++) {
-            pixel[i][j].R = _R;
-            pixel[i][j].G = _G;
-            pixel[i][j].B = _B;
+void Image::modify_color_val(int _height_edge, int _width_edge, std::string _FILE_NAME, int _R, int _G, int _B) {
+    for (int i = 0; i < _height_edge; i++) {
+        for (int j = 0; j < _width_edge; j++) {
+            this->pixel[i * this->fig_width + j].R = _R;
+            this->pixel[i * this->fig_width + j].G = _G;
+            this->pixel[i * this->fig_width + j].B = _B;
         }
     }
     fclose(this->file_in);
     fwrite(&this->bfType, 2, 1, this->file_out);
     fwrite(&this->bmp_file_head, 1, 12, this->file_out);
     fwrite(&this->bmp_info_head, 1, 40, this->file_out);
-    fwrite(this->pixel, RGB_BYTE_24, this->fig_rows * this->fig_cols, this->file_out);
+    fwrite(this->pixel, RGB_BYTE_24, this->fig_width * this->fig_height, this->file_out);
     fclose(this->file_out);
-    std::cout << "Modify color into" << _FILE_NAME << " successfully!" << std::endl;
+    std::cout << "Modify color into " << _FILE_NAME << " successfully!" << std::endl;
 }
 
 
@@ -109,39 +105,45 @@ void Image::modify_palette() {
     fwrite(&this->bmp_file_head, 1, 12, this->file_out);
     fwrite(&this->bmp_info_head, 1, 40, this->file_out);
     fwrite(this->pixel_palette, PALETTE * COLOR_NUM, PALETTE_COUNT, this->file_out);
-    fwrite(this->rgb_idx, RGB_BYTE_256, this->fig_rows * this->fig_cols, this->file_out);
+    fwrite(this->origin_pixel_256, RGB_BYTE_256, this->fig_width * this->fig_height, this->file_out);
     fclose(this->file_in);
     fclose(this->file_out);
     std::cout << "Modify palette successfully!" << std::endl;
 }
 
 
-void Image::add_edges(int _add_height, int _add_width) {
+void Image::add_edges(int _add_height, int _add_width, int _offset) {
     std::cout << "Start to add edges" << std::endl;
     int width = this->get_widths(), height = this->get_heights();
-    std::cout << "figure width = " << width << " figure height = " << height << std::endl;
-    Pixel add_edge_pixel[height + _add_height][width + _add_width];
+    Pixel* add_edge_pixel_temp = new Pixel[(height + _add_height) * (width + _add_width)];
+    Pixel* add_edge_pixel_res = new Pixel[(height + _add_height) * (width + _add_width)];
     this->bmp_info_head.biWidth += _add_width;
     this->bmp_info_head.biHeight += _add_height;
+    int new_width = this->bmp_info_head.biWidth, new_height = this->bmp_info_head.biHeight;
     std::cout << "new width = " << bmp_info_head.biWidth << " new height = " << bmp_info_head.biHeight << std::endl;
-    for (int i = 0; i < height + _add_height; i++) {
-        for (int j = 0; j < width + _add_width; j++) {
-            if (i >= width || j >= height) {
-                add_edge_pixel[i][j].R = EXP2_R;
-                add_edge_pixel[i][j].G = EXP2_G;
-                add_edge_pixel[i][j].B = EXP2_B;
-            } else {
-                add_edge_pixel[i][j].R = this->pixel[i][j].R;
-                add_edge_pixel[i][j].G = this->pixel[i][j].G;
-                add_edge_pixel[i][j].B = this->pixel[i][j].B;
+    for (int i = 0; i < new_height; i++) {
+        for (int j = 0; j < new_width; j++) {
+            if (i < _offset || i >= height + _offset || j < _offset || j >= width + _offset) {
+                add_edge_pixel_res[i * new_width + j].R = EXP2_R;
+                add_edge_pixel_res[i * new_width + j].G = EXP2_G;
+                add_edge_pixel_res[i * new_width + j].B = EXP2_B;
             }
         }
     }
+    for (int i = _offset, _i = 0; i <= new_height - _offset && _i < height; i++, _i++) {
+        for (int j = _offset, _j = 0; j <= new_width - _offset && _j < width; j++, _j++) {
+            add_edge_pixel_res[i * new_width + j].R = this->pixel[_i * width + _j].R;
+            add_edge_pixel_res[i * new_width + j].G = this->pixel[_i * width + _j].G;
+            add_edge_pixel_res[i * new_width + j].B = this->pixel[_i * width + _j].B;
+        }
+    }
+    this->bmp_info_head.biSizeImage = new_width * new_height;
+    this->bmp_file_head.bfSize = this->bmp_file_head.bfOffBits + this->bmp_info_head.biSizeImage;
     fclose(this->file_in);
     fwrite(&this->bfType, 2, 1, this->file_out);
     fwrite(&this->bmp_file_head, 1, 12, this->file_out);
     fwrite(&this->bmp_info_head, 1, 40, this->file_out);
-    fwrite(add_edge_pixel, RGB_BYTE_24, (width + _add_width) * (height + _add_height), this->file_out);
+    fwrite(add_edge_pixel_res, RGB_BYTE_24, (width + _add_width) * (height + _add_height), this->file_out);
     fclose(this->file_out);
     std::cout << "Add edges successfully!" << std::endl;
 }
@@ -161,7 +163,7 @@ void Image::verify_biClrUsed_biClrImportant() {
     fwrite(&this->bmp_file_head, 1, 12, this->file_out);
     fwrite(&this->bmp_info_head, 1, 40, this->file_out);
     fwrite(this->pixel_palette, PALETTE * COLOR_NUM, PALETTE_COUNT, this->file_out);
-    fwrite(this->rgb_idx, RGB_BYTE_256, width * height, this->file_out);
+    fwrite(this->origin_pixel_256, RGB_BYTE_256, width * height, this->file_out);
     fclose(this->file_in);
     fclose(this->file_out);
 }
@@ -200,12 +202,12 @@ void Image::transform_24_topK(int target_color_num) {
     int width = this->get_widths(), height = this->get_heights();
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            int pos = find_rgb_pos(rgb_vocab, this->pixel[i][j]);
+            int pos = find_rgb_pos(rgb_vocab, this->pixel[i * width + j]);
             if (pos != -1)
                 continue;
             else {
-                rgb_vocab.push_back(this->pixel[i][j]);
-                int pos = find_rgb_pos(rgb_vocab, this->pixel[i][j]);
+                rgb_vocab.push_back(this->pixel[i * width + j]);
+                int pos = find_rgb_pos(rgb_vocab, this->pixel[i * width + j]);
                 std::pair<int, int> idx_cnt = std::make_pair(pos, 0);
                 cnt_rgb.push_back(idx_cnt);
             }
@@ -213,12 +215,11 @@ void Image::transform_24_topK(int target_color_num) {
     }
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            int pos = find_rgb_pos(rgb_vocab, this->pixel[i][j]);
+            int pos = find_rgb_pos(rgb_vocab, this->pixel[i * width + j]);
             cnt_rgb[pos].second++;
         }
     }
     std::sort(cnt_rgb.begin(), cnt_rgb.end(), cmp);
-    std::cout << "Start to build palette" << std::endl;
     for (int i = 0; i < (int) pow(2, target_color_num); i++) {
         Pixel temp_pixel = rgb_vocab[cnt_rgb[i].first];
         this->new_form_palette[i].G = temp_pixel.G;
@@ -226,11 +227,10 @@ void Image::transform_24_topK(int target_color_num) {
         this->new_form_palette[i].R = temp_pixel.R;
         this->new_form_palette[i].reserved = 0;
     }
-    std::cout << "Start to form picture information" << std::endl;
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            int pos = find_suitable_color_pos(this->pixel[i][j], (int) pow(2, target_color_num));
-            this->new_form_pixel[i][j] = (BYTE) pos;
+            int pos = find_suitable_color_pos(this->pixel[i * width + j], (int) pow(2, target_color_num));
+            this->new_pixel_256[i * width + j] = (BYTE) pos;
         }
     }
     this->bmp_info_head.biBitCount = target_color_num;
@@ -240,8 +240,8 @@ void Image::transform_24_topK(int target_color_num) {
     fwrite(&this->bfType, 2, 1, this->file_out);
     fwrite(&this->bmp_file_head, 1, 12, this->file_out);
     fwrite(&this->bmp_info_head, 1, 40, this->file_out);
-    fwrite(this->new_form_palette, PALETTE * COLOR_NUM, PALETTE_COUNT, this->file_out);
-    fwrite(this->new_form_pixel, RGB_BYTE_256, width * height, this->file_out);
+    fwrite(this->new_form_palette, PALETTE * ((int) pow(2, target_color_num)), PALETTE_COUNT, this->file_out);
+    fwrite(this->new_pixel_256, RGB_BYTE_256, width * height, this->file_out);
     fclose(this->file_in);
     fclose(this->file_out);
 }
@@ -287,7 +287,7 @@ void Image::transform_24_Kmeans(int target_color_num) {
     int width = this->get_widths(), height = this->get_heights();
     for (int i = 0; i < height; i++)
         for (int j = 0; j < width; j++)
-            point.push_back(this->pixel[i][j]);
+            point.push_back(this->pixel[i * width + j]);
     int pixel_num = point.size();
     std::cout << "Pixel num = " << pixel_num << std::endl;
     point_type.resize(pixel_num, -1);
@@ -296,7 +296,7 @@ void Image::transform_24_Kmeans(int target_color_num) {
     std::unordered_map<int, int> random_num_map;
 
     // first k-means
-    std::cout << "find random 256 color point" << std::endl;
+    std::cout << "find random 256 color point..." << std::endl;
     int i_count = 0;
     while (i_count < (int) pow(2, target_color_num)) {
         int rand_idx = rand() % pixel_num;
@@ -307,21 +307,18 @@ void Image::transform_24_Kmeans(int target_color_num) {
         point_type[rand_idx] = i_count;
         i_count++;
     }
-    std::cout << "Finish find 256 color" << std::endl;
     for (int epoch = 0; epoch < EPOCH_NUMS; epoch++) {
         for (int i = 0; i < height; i++) {
             for (int j = 0; j < width; j++) {
-                if (point_type[i * height + j] != -1)
+                if (point_type[i * width + j] != -1)
                     continue;
-                int same_type_point_idx = find_color_type(k_means_vec, this->pixel[i][j], point);
-                point_type[i * height + j] = point_type[same_type_point_idx];
+                int same_type_point_idx = find_color_type(k_means_vec, this->pixel[i * width + j], point);
+                point_type[i * width + j] = point_type[same_type_point_idx];
             }
         }
         std::cout << "Finish update point type" << std::endl;
         k_means_vec.clear();
         std::vector<int> temp_point_type(pixel_num, -1);
-        std::cout << "Clear k_means_vec, k_means_vec size = " << k_means_vec.size() << std::endl;
-        std::cout << "Start to calculate each same type average point" << std::endl;
         for (int type = 0; type < (int) pow(2, target_color_num); type++) {
             std::vector<int> same_type;
             for (int j = 0; j < pixel_num; j++) {
@@ -357,15 +354,15 @@ void Image::transform_24_Kmeans(int target_color_num) {
     }
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            if (point_type[i * height + j] != -1)
+            if (point_type[i * width + j] != -1)
                 continue;
-            int same_type_point_idx = find_color_type(k_means_vec, this->pixel[i][j], point);
-            point_type[i * height + j] = point_type[same_type_point_idx];
+            int same_type_point_idx = find_color_type(k_means_vec, this->pixel[i * width + j], point);
+            point_type[i * width + j] = point_type[same_type_point_idx];
         }
     }
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            this->new_form_pixel[i][j] = (BYTE) point_type[i * height + j];
+            this->new_pixel_256[i * width + j] = (BYTE) point_type[i * width + j];
         }
     }
     this->bmp_info_head.biBitCount = target_color_num;
@@ -375,10 +372,20 @@ void Image::transform_24_Kmeans(int target_color_num) {
     fwrite(&this->bfType, 2, 1, this->file_out);
     fwrite(&this->bmp_file_head, 1, 12, this->file_out);
     fwrite(&this->bmp_info_head, 1, 40, this->file_out);
-    fwrite(this->new_form_palette, PALETTE * COLOR_NUM, PALETTE_COUNT, this->file_out);
-    fwrite(this->new_form_pixel, RGB_BYTE_256, width * height, this->file_out);
+    fwrite(this->new_form_palette, PALETTE * ((int) pow(2, target_color_num)), PALETTE_COUNT, this->file_out);
+    fwrite(this->new_pixel_256, 1, width * height, this->file_out);
     fclose(this->file_in);
     fclose(this->file_out);
+}
+
+
+void Image::print_pixel() {
+    int width = this->get_widths(), height = this->get_heights();
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++)
+            std::cout << (int) pixel[i * height + j].R << " " << (int) pixel[i * height + j].G << " " << (int) pixel[i * height + j].B << " ";
+        std::cout << std::endl << std::endl;
+    }
 }
 
 

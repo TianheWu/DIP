@@ -70,11 +70,11 @@ private:
     Bitmap_info_header bmp_info_head;
     FILE* file_in;
     FILE* file_out;
-    int fig_rows;
-    int fig_cols;
-    Pixel pixel[ROWS][COLUMNS];
-    BYTE rgb_idx[ROWS][COLUMNS];
-    BYTE new_form_pixel[ROWS][COLUMNS];
+    int fig_width;
+    int fig_height;
+    Pixel* pixel;
+    BYTE* origin_pixel_256;
+    BYTE* new_pixel_256;
     Pixel_palette* pixel_palette;
     Pixel_palette* new_form_palette;
     int find_suitable_color_pos(Pixel& in_pixel, int target_color_num);
@@ -85,10 +85,11 @@ private:
 public:
     Image();
     void load_fig(std::string __FILE_NAME, std::string __FILE_NAME_2, int _exp);
-    void save_color_val(int _border_x, int _border_y, std::string _FILE_NAME);
-    void modify_color_val(int _border_x, int _border_y, std::string _FILE_NAME, int _R, int _G, int _B);
+    void save_color_val(int _height_edge, int _width_edge, std::string _FILE_NAME);
+    void modify_color_val(int _height_edge, int _width_edge, std::string _FILE_NAME, int _R, int _G, int _B);
     void modify_palette();
-    void add_edges(int _add_height, int _add_width);
+    void add_edges(int _add_height, int _add_width, int _offset);
+    void print_pixel();
     void verify_biClrUsed_biClrImportant();
     void transform_24_Kmeans(int target_color_num);
     void transform_24_topK(int target_color_num);

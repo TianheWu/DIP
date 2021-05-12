@@ -24,21 +24,17 @@
 #define EXP_EXT1_OUT "IMG_EXT1_OUT.bmp"
 #define EXP_EXT2_OUT "IMG_EXT2_OUT.bmp"
 #define WSY "wsy_bmp.bmp"
-#define BORDER_X_1 10
-#define BORDER_Y_1 10
-#define BORDER_X_2 20
-#define BORDER_Y_2 20
+#define CITY "city_24.bmp"
+#define PE "pe.bmp"
 #define RGB_BYTE_256 1
 #define RGB_BYTE_24 3
-#define ROWS 512
-#define COLUMNS 512
 #define EXP2_R 50
 #define EXP2_G 100
 #define EXP2_B 20
 #define PALETTE 4
 #define COLOR_NUM 256
 #define PALETTE_COUNT 1
-#define EPOCH_NUMS 60
+#define EPOCH_NUMS 20
 #define INT_MAX_NUM 1000000007
 
 
