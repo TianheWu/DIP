@@ -96,9 +96,9 @@ void Image::modify_color_val(int _height_edge, int _width_edge, std::string _FIL
 void Image::modify_palette() {
     std::cout << "Start to modify palette" << std::endl;
     for (int i = 0; i < COLOR_NUM; i++) {
-        this->pixel_palette[i].G = i;
+        this->pixel_palette[i].G = 0;
         this->pixel_palette[i].R = 0;
-        this->pixel_palette[i].B = 0;
+        this->pixel_palette[i].B = i;
         this->pixel_palette[i].reserved = 0;
     }
     fwrite(&this->bfType, 2, 1, this->file_out);
@@ -124,9 +124,9 @@ void Image::add_edges(int _add_height, int _add_width, int _offset) {
     for (int i = 0; i < new_height; i++) {
         for (int j = 0; j < new_width; j++) {
             if (i < _offset || i >= height + _offset || j < _offset || j >= width + _offset) {
-                add_edge_pixel_res[i * new_width + j].R = EXP2_R;
-                add_edge_pixel_res[i * new_width + j].G = EXP2_G;
-                add_edge_pixel_res[i * new_width + j].B = EXP2_B;
+                add_edge_pixel_res[i * new_width + j].R = 17;
+                add_edge_pixel_res[i * new_width + j].G = 19;
+                add_edge_pixel_res[i * new_width + j].B = 113;
             }
         }
     }
@@ -153,11 +153,11 @@ void Image::verify_biClrUsed_biClrImportant() {
     int width = this->get_widths(), height = this->get_heights();
     DWORD biClrUsed = this->bmp_info_head.biClrUsed;
     std::cout << "Origin biClrUsed is " << biClrUsed << std::endl;
-    this->bmp_info_head.biClrUsed = 2;
+    this->bmp_info_head.biClrUsed = 0;
     std::cout << "New biClrUsed is " << this->bmp_info_head.biClrUsed << std::endl;
     DWORD biClrImportant = this->bmp_info_head.biClrImportant;
     std::cout << "Origin biClrImportant is " << biClrImportant << std::endl;
-    this->bmp_info_head.biClrImportant = 1;
+    this->bmp_info_head.biClrImportant = 5;
     std::cout << "New biClrImportant is " << this->bmp_info_head.biClrImportant << std::endl;
     fwrite(&this->bfType, 2, 1, this->file_out);
     fwrite(&this->bmp_file_head, 1, 12, this->file_out);
