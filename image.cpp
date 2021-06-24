@@ -6,6 +6,7 @@
 #include <vector>
 #include <algorithm>
 #include <stdlib.h>
+#include <string.h>
 #include <time.h>
 #include <stdio.h>
 #include <cmath>
@@ -38,7 +39,7 @@ void Image::load_fig(std::string __FILE_NAME_1, std::string __FILE_NAME_2, int _
     this->file_in = fopen(__FILE_NAME_1.c_str(), "rb");
     if (_exp == 1)
         this->file_out = fopen(__FILE_NAME_2.c_str(), "w");
-    else if (_exp == 2 || _exp == 3 || _exp == 4 || _exp == 5 || _exp == 6)
+    else if (_exp == 2 || _exp == 3 || _exp == 4 || _exp == 5 || _exp == 6 || _exp == 7)
         this->file_out = fopen(__FILE_NAME_2.c_str(), "wb");
     std::cout << "Open " << __FILE_NAME_1 << " and " << __FILE_NAME_2 << " successfully!" << std::endl;
     fread(&this->bfType, 2, 1, this->file_in);
@@ -46,16 +47,19 @@ void Image::load_fig(std::string __FILE_NAME_1, std::string __FILE_NAME_2, int _
     fread(&this->bmp_info_head, 40, 1, this->file_in);
     this->fig_width = this->bmp_info_head.biWidth;
     this->fig_height = this->bmp_info_head.biHeight;
-    if (this->bmp_info_head.biBitCount == 8)
+    if (this->bmp_info_head.biBitCount == 8) {
+        this->origin_pixel_256 = new unsigned char[this->fig_width * this->fig_height];
         this->pixel_palette = new Pixel_palette[COLOR_NUM];
-    std::cout << "figure color is " << this->bmp_info_head.biBitCount << std::endl;
+    }
+    else if (this->bmp_info_head.biBitCount == 24) {
+        this->pixel = new Pixel[this->fig_width * this->fig_height];
+        this->yuv = new YUV[this->fig_width * this->fig_height];
+    }
+    std::cout << "figure color is " << this->bmp_info_head.biBitCount << "bit" << std::endl;
     std::cout << "figure width: " << this->fig_width << " | figure height: " << this->fig_height << std::endl;
-    this->pixel = new Pixel[this->fig_width * this->fig_height];
-    this->origin_pixel_256 = new BYTE[this->fig_width * this->fig_height];
-    this->new_pixel_256 = new BYTE[this->fig_width * this->fig_height];
-    if (_exp == EXP1 || _exp == EXP2 || _exp == EXP4 || _exp == EXTEND_EXP_2)
+    if (_exp == 1 || _exp == 2 || _exp == 4 || _exp == 6 || _exp == 7)
         fread(this->pixel, RGB_BYTE_24, this->fig_width * this->fig_height, this->file_in);
-    else if (_exp == EXP3 || _exp == EXTEND_EXP_1) {
+    else if (_exp == 3 || _exp == 5) {
         fread(this->pixel_palette, PALETTE * COLOR_NUM, PALETTE_COUNT, this->file_in);
         fread(this->origin_pixel_256, RGB_BYTE_256, this->fig_width * this->fig_height, this->file_in);
     }
@@ -151,11 +155,11 @@ void Image::add_edges(int _add_height, int _add_width, int _offset) {
 
 void Image::verify_biClrUsed_biClrImportant() {
     int width = this->get_widths(), height = this->get_heights();
-    DWORD biClrUsed = this->bmp_info_head.biClrUsed;
+    unsigned int biClrUsed = this->bmp_info_head.biClrUsed;
     std::cout << "Origin biClrUsed is " << biClrUsed << std::endl;
     this->bmp_info_head.biClrUsed = 0;
     std::cout << "New biClrUsed is " << this->bmp_info_head.biClrUsed << std::endl;
-    DWORD biClrImportant = this->bmp_info_head.biClrImportant;
+    unsigned int biClrImportant = this->bmp_info_head.biClrImportant;
     std::cout << "Origin biClrImportant is " << biClrImportant << std::endl;
     this->bmp_info_head.biClrImportant = 5;
     std::cout << "New biClrImportant is " << this->bmp_info_head.biClrImportant << std::endl;
@@ -196,6 +200,7 @@ int Image::find_suitable_color_pos(Pixel& in_pixel, int target_color_num_all) {
 
 
 void Image::transform_24_topK(int target_color_num) {
+    this->new_pixel_256 = new unsigned char[this->fig_width * this->fig_height];
     this->new_form_palette = new Pixel_palette[(int) pow(2, target_color_num)];
     std::vector<Pixel> rgb_vocab;
     std::vector<std::pair<int, int>> cnt_rgb;
@@ -230,7 +235,7 @@ void Image::transform_24_topK(int target_color_num) {
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
             int pos = find_suitable_color_pos(this->pixel[i * width + j], (int) pow(2, target_color_num));
-            this->new_pixel_256[i * width + j] = (BYTE) pos;
+            this->new_pixel_256[i * width + j] = (unsigned char) pos;
         }
     }
     this->bmp_info_head.biBitCount = target_color_num;
@@ -280,6 +285,7 @@ int Image::find_match_average(std::vector<int>& same_type, Pixel& in_pixel, std:
 
 
 void Image::transform_24_Kmeans(int target_color_num) {
+    this->new_pixel_256 = new unsigned char[this->fig_width * this->fig_height];
     // each point has idx
     std::vector<Pixel> point;
     std::vector<int> k_means_vec;
@@ -362,7 +368,7 @@ void Image::transform_24_Kmeans(int target_color_num) {
     }
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++) {
-            this->new_pixel_256[i * width + j] = (BYTE) point_type[i * width + j];
+            this->new_pixel_256[i * width + j] = (unsigned char) point_type[i * width + j];
         }
     }
     this->bmp_info_head.biBitCount = target_color_num;
@@ -383,10 +389,104 @@ void Image::print_pixel() {
     int width = this->get_widths(), height = this->get_heights();
     for (int i = 0; i < height; i++) {
         for (int j = 0; j < width; j++)
-            std::cout << (int) pixel[i * height + j].R << " " << (int) pixel[i * height + j].G << " " << (int) pixel[i * height + j].B << " ";
+            std::cout << (int) pixel[i * width + j].R << " " << (int) pixel[i * width + j].G << " " << (int) pixel[i * width + j].B << " ";
         std::cout << std::endl << std::endl;
     }
 }
+
+
+void Image::rgb_to_yuv() {
+    int width = this->get_widths(), height = this->get_heights();
+    for (int i = 0; i < height; i++) {
+        for (int j = 0; j < width; j++) {
+            unsigned char r = this->pixel[i * this->fig_width + j].R;
+            unsigned char g = this->pixel[i * this->fig_width + j].G;
+            unsigned char b = this->pixel[i * this->fig_width + j].B;
+            yuv[i * width + j].Y = std::floor(0.257 * r + 0.504 * g + 0.098 * b + 16);
+            yuv[i * width + j].V = std::floor(0.439 * r - 0.368 * g - 0.071 * b + 128);
+            yuv[i * width + j].U = std::floor(-0.148 * r - 0.291 * g + 0.439 * b + 128);
+        }
+    }
+}
+
+
+void Image::yuv_to_rgb() {
+    for (int i = 0; i < this->get_widths() * this->get_heights(); i++) {
+        int B = std::floor(1.164 * (yuv[i].Y - 16) + 2.018 * (yuv[i].U - 128));
+        int G = std::floor(1.164 * (yuv[i].Y - 16) - 0.813 * (yuv[i].V - 128) - 0.391 * (yuv[i].U - 128));
+        int R = std::floor(1.164 * (yuv[i].Y - 16) + 1.596 * (yuv[i].V - 128));
+        if (R < 0) R = 0;
+        else if (R > 255) R = 255;
+        if (G < 0) G = 0;
+        else if (G > 255) G = 255;
+        if (B < 0) B = 0;
+        else if (B > 255) B = 255;
+        this->pixel[i].R = (unsigned char) R;
+        this->pixel[i].G = (unsigned char) G;
+        this->pixel[i].B = (unsigned char) B;
+    }
+}
+
+
+void Image::histogram_equalization() {
+    std::unordered_map<int, int> _map_l;
+    std::unordered_map<int, int> _map_hsl;
+    std::cout << "start to histogram equalization..." << std::endl;
+    rgb_to_yuv();
+    std::cout << "rgb to yuv successfully..." << std::endl;
+    int width = this->get_widths(), height = this->get_heights();
+    double l_num_vec[COLOR_NUM];
+    int new_l_num_vec[COLOR_NUM];
+    double l_probability[COLOR_NUM];
+    double presum_probability[COLOR_NUM];
+    memset(l_num_vec, 0, sizeof(l_num_vec));
+    memset(new_l_num_vec, 0, sizeof(new_l_num_vec));
+    memset(l_probability, 0, sizeof(l_probability));
+    memset(presum_probability, 0, sizeof(presum_probability));
+    int sum_l = 0;
+    for (int i = 0; i < width * height; i++) l_num_vec[yuv[i].Y]++;
+    for (int i = 0; i < COLOR_NUM; i++) sum_l += l_num_vec[i];
+    int valid_num = 0;
+    double max_valid_probability = 0, min_valid_probability = 1, over_average_num = 0, average = 0, variance = 0;
+    for (int i = 0; i < COLOR_NUM; i++) {
+        l_probability[i] = (double) l_num_vec[i] * 1.0 / sum_l;
+        if (l_probability[i] != 0) {
+            valid_num++;
+            average += l_probability[i];
+            if (l_probability[i] > (1.0 / 256)) over_average_num++;
+            if (max_valid_probability < l_probability[i]) max_valid_probability = l_probability[i];
+            if (min_valid_probability > l_probability[i]) min_valid_probability = l_probability[i];
+        }
+    }
+    double average_probability = average / valid_num, tmp_sum = 0;
+    for (int i = 0; i < COLOR_NUM; i++) tmp_sum += pow((l_probability[i] - average_probability), 2);
+    variance = tmp_sum / valid_num;
+    std::cout << "valid gray num: " << valid_num << std::endl;
+    std::cout << "valid max valid probability: " << max_valid_probability << std::endl;
+    std::cout << "valid min valid probability: " << min_valid_probability << std::endl;
+    std::cout << "valid max valid probability / valid min valid probability: " << max_valid_probability / min_valid_probability << std::endl;
+    std::cout << "valid over average num: " << over_average_num << std::endl;
+    std::cout << "valid average probability: " << average_probability << std::endl;
+    std::cout << "valid variance: " << variance << std::endl;
+
+    presum_probability[0] = l_probability[0];
+    for (int i = 1; i < COLOR_NUM; i++) presum_probability[i] = presum_probability[i - 1] + l_probability[i];
+    for (int i = 0; i < COLOR_NUM; i++) {
+        new_l_num_vec[i] = std::round(presum_probability[i] * 255);
+        _map_l[i] = new_l_num_vec[i];
+    }
+    for (int i = 0; i < width * height; i++) yuv[i].Y = _map_l[yuv[i].Y];
+    std::cout << "histogram successfully..." << std::endl;
+    yuv_to_rgb();
+    std::cout << "yuv to rgb successfully..." << std::endl;
+    fclose(this->file_in);
+    fwrite(&this->bfType, 2, 1, this->file_out);
+    fwrite(&this->bmp_file_head, 1, 12, this->file_out);
+    fwrite(&this->bmp_info_head, 1, 40, this->file_out);
+    fwrite(this->pixel, RGB_BYTE_24, this->fig_width * this->fig_height, this->file_out);
+    fclose(this->file_out);
+}
+
 
 
 
